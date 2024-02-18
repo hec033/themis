@@ -1,5 +1,6 @@
 import os
 import time
+import streamlit as st
 from openai import OpenAI
 from pinecone import Pinecone, ServerlessSpec
 
@@ -37,13 +38,19 @@ def pc_retrieve(openai_client, pinecone_index, text, model="text-embedding-ada-0
 
 
 def themis_ai():
+    st.title("Themis")
+
+    if "openai_model" not in st.session_state:
+        st.session_state["openai_model"] = "gpt-4-turbo-preview"
+        st.session_state["pc-index-name"] = "themis-gpt-4-turbo-preview"
+
     # Load your API key from an environment variable or secret management service
     client = OpenAI(
         # This is the default and can be omitted
         api_key=os.environ.get("OPENAI_THEMIS_KEY"),
     )
     # Load Pinecone index
-    pc_index = instantiate_pinecone(pc_api_key=os.environ.get("PINECONE_API_KEY"), pc_index_name='themis-gpt-4-turbo-preview')
+    pc_index = instantiate_pinecone(pc_api_key=os.environ.get("PINECONE_API_KEY"), pc_index_name=st.session_state["pc-index-name"])
 
     # create a list to store all messages for context
     primer = f"""You are Themis. A highly intelligent system that answers legal-based user questions based on your 
@@ -55,13 +62,24 @@ def themis_ai():
     information present in "Context" along with your knowledge to answer each question. If the information necessary to answer the question in 
     the "Query" cannot be found in the information present in "Context", you truthfully say "I don't know"."""
 
-    messages = [
-        {"role": "system", "content": primer},
-    ]
+    if "messages" not in st.session_state:
+        st.session_state.messages = [
+            {"role": "system", "content": primer}
+        ]
 
-    messages_aug = [
-        {"role": "system", "content": primer_aug},
-    ]
+    if "messages_aug" not in st.session_state:
+        st.session_state.messages_aug = [
+            {"role": "system", "content": primer_aug}
+        ]
+
+    themis, themis_aug = st.columns(2)
+
+    with themis:
+        st.header("Themis")
+
+        for message in st.session_state.messages:
+            with st.chat_message(message["role"]):
+                st.markdown(message["content"])
 
     # keep repeating the following
     while True:
@@ -93,7 +111,7 @@ def themis_ai():
         # request gpt-4-turbo-preview for chat completion
         stream_completion = client.chat.completions.create(
             messages=messages,
-            model="gpt-4-turbo-preview",
+            model=st.session_state["openai_model"],
             stream=True
         )
 
